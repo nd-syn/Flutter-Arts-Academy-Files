@@ -1,317 +1,349 @@
 import 'package:flutter/material.dart';
-import '../models/student.dart';
-import 'dart:io';
-import 'dart:ui'; // For BackdropFilter if needed
-import 'package:pdf/widgets.dart' as pw;
-import 'package:pdf/pdf.dart';
-import 'package:printing/printing.dart';
+import 'package:arts_academy/models/student_model.dart';
+import 'package:arts_academy/screens/edit_student_screen.dart';
+import 'package:arts_academy/services/database_helper.dart';
+import 'package:arts_academy/utils/theme.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
-class StudentDetailScreen extends StatelessWidget {
+class StudentDetailScreen extends StatefulWidget {
   final Student student;
-  const StudentDetailScreen({Key? key, required this.student}) : super(key: key);
 
-  Widget _detailRow(BuildContext context, IconData icon, String label, String value) {
-    final theme = Theme.of(context);
-    final width = MediaQuery.of(context).size.width;
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: width * 0.015),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: theme.colorScheme.primary, size: width * 0.07),
-          SizedBox(width: width * 0.04),
-          Text(
-            '$label: ',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.primary,
-              fontSize: width * 0.045,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodyLarge?.copyWith(fontSize: width * 0.045),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+  const StudentDetailScreen({super.key, required this.student});
+
+  @override
+  State<StudentDetailScreen> createState() => _StudentDetailScreenState();
+}
+
+class _StudentDetailScreenState extends State<StudentDetailScreen> {
+  late Student _student;
+  final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _student = widget.student;
+  }
+
+  Future<void> _refreshStudentData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final updatedStudent = await _databaseHelper.getStudent(_student.id!);
+      if (updatedStudent != null) {
+        setState(() {
+          _student = updatedStudent;
+        });
+      }
+    } catch (e) {
+      _showErrorSnackBar('Failed to refresh student data: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(10),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final width = MediaQuery.of(context).size.width;
-    // Calculate ages
-    final now = DateTime.now();
-    int age = now.year - student.dob.year - ((now.month < student.dob.month || (now.month == student.dob.month && now.day < student.dob.day)) ? 1 : 0);
-    int admissionAge = student.admissionDate.year - student.dob.year - ((student.admissionDate.month < student.dob.month || (student.admissionDate.month == student.dob.month && student.admissionDate.day < student.dob.day)) ? 1 : 0);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Student Details'),
-      ),
-      body: Stack(
-        children: [
-          // Animated gradient background (static for now, can add animation if needed)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.purple.shade50,
-                    Colors.blue.shade50,
-                    Colors.teal.shade50,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  stops: const [0.1, 0.5, 1.0],
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: false,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(80),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              stops: const [0.0, 0.3, 0.6, 1.0],
+              colors: [
+                const Color(0xFF667eea), // Academic blue
+                const Color(0xFF764ba2), // Deep purple
+                const Color(0xFFf093fb), // Soft pink
+                const Color(0xFFf5f7fa), // Light background
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: AppBar(
+              title: const Text(
+                'Student Details',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
                 ),
+              ),
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              centerTitle: true,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                onPressed: () => Navigator.pop(context),
+                tooltip: 'Back',
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.edit_rounded),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditStudentScreen(student: _student),
+                      ),
+                    );
+                    if (result == true) {
+                      _refreshStudentData();
+                    }
+                  },
+                  tooltip: 'Edit Student',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            stops: const [0.0, 0.3, 0.6, 1.0],
+            colors: [
+              const Color(0xFF667eea), // Academic blue
+              const Color(0xFF764ba2), // Deep purple
+              const Color(0xFFf093fb), // Soft pink
+              const Color(0xFFf5f7fa), // Light background
+            ],
+          ),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white.withOpacity(0.9),
+                Colors.white.withOpacity(0.95),
+                Colors.white.withOpacity(0.98),
+              ],
+            ),
+          ),
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _buildStudentDetails(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentDetails() {
+    return RefreshIndicator(
+      onRefresh: _refreshStudentData,
+      color: AppTheme.primaryColor,
+      child: AnimationLimiter(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: AnimationConfiguration.toStaggeredList(
+                duration: const Duration(milliseconds: 375),
+                childAnimationBuilder: (widget) => SlideAnimation(
+                  horizontalOffset: 50.0,
+                  child: FadeInAnimation(child: widget),
+                ),
+                children: [
+                  _buildProfileHeader(),
+                  const SizedBox(height: 24),
+                  _buildInfoSection('Personal Information', [
+                    _buildInfoRow('Name', _student.name),
+                    _buildInfoRow('Class', _student.studentClass),
+                    _buildInfoRow('School', _student.school),
+                    _buildInfoRow('Version', _student.version),
+                    if (_student.dob != null)
+                      _buildInfoRow(
+                        'Date of Birth',
+                        DateFormat('dd MMM yyyy').format(_student.dob!),
+                      ),
+                    if (_student.admissionDate != null)
+                      _buildInfoRow(
+                        'Admission Date',
+                        DateFormat('dd MMM yyyy').format(_student.admissionDate!),
+                      ),
+                  ]),
+                  const SizedBox(height: 16),
+                  _buildInfoSection('Contact Information', [
+                    _buildInfoRow('Guardian Name', _student.guardianName),
+                    _buildInfoRow('Guardian Phone', _student.guardianPhone),
+                    if (_student.studentPhone != null && _student.studentPhone!.isNotEmpty)
+                      _buildInfoRow('Student Phone', _student.studentPhone!),
+                    if (_student.address != null && _student.address!.isNotEmpty)
+                      _buildInfoRow('Address', _student.address!),
+                  ]),
+                  const SizedBox(height: 16),
+                  _buildInfoSection('Academic Information', [
+                    _buildInfoRow('Subjects', _student.subjects.join(', ')),
+                    _buildInfoRow('Fees', '₹${_student.fees}'),
+                  ]),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),
-          ListView(
-            padding: EdgeInsets.symmetric(horizontal: width * 0.04, vertical: width * 0.04),
-            children: [
-              // Profile photo
-              Center(
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.primary.withOpacity(0.18),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader() {
+    return Center(
+      child: Column(
+        children: [
+          Hero(
+            tag: 'student_profile_${_student.id}',
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primaryColor.withOpacity(0.2),
+                border: Border.all(
+                  color: AppTheme.primaryColor,
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: _student.profilePic != null && _student.profilePic!.isNotEmpty
+                  ? ClipOval(
+                      child: Image.memory(
+                        _student.profilePic!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => _buildInitialAvatar(),
                       ),
-                    ],
-                  ),
-                  child: CircleAvatar(
-                    radius: width * 0.18,
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage: student.photoPath != null && student.photoPath!.isNotEmpty
-                        ? FileImage(File(student.photoPath!))
-                        : null,
-                    child: (student.photoPath == null || student.photoPath!.isEmpty)
-                        ? Icon(Icons.person, size: width * 0.18, color: Colors.grey)
-                        : null,
-                  ),
-                ),
-              ),
-              SizedBox(height: width * 0.06),
-              // Details card with gradient background
-              Card(
-                margin: const EdgeInsets.symmetric(vertical: 18),
-                elevation: 8,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-                child: Padding(
-                  padding: const EdgeInsets.all(18.0),
-                  child: Table(
-                    columnWidths: const {
-                      0: IntrinsicColumnWidth(),
-                      1: FlexColumnWidth(),
-                    },
-                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                    children: [
-                      _tableRow(context, Icons.person, 'Name', student.name),
-                      _tableRow(context, Icons.school, 'Class', student.className),
-                      _tableRow(context, Icons.account_balance, 'School', student.school),
-                      _tableRow(context, Icons.phone, 'Guardian Phone', student.guardianPhone),
-                      if (student.studentPhone != null && student.studentPhone!.isNotEmpty)
-                        _tableRow(context, Icons.phone_android, 'Student Phone', student.studentPhone!),
-                      _tableRow(context, Icons.home, 'Address', student.address),
-                      _tableRow(context, Icons.cake, 'DOB', student.dob.toLocal().toString().split(' ')[0]),
-                      _tableRow(context, Icons.info, 'Current Age', '$age years'),
-                      _tableRow(context, Icons.event_available, 'Age at Admission', '$admissionAge years'),
-                      _tableRow(context, Icons.calendar_today, 'Admission Date', student.admissionDate.toLocal().toString().split(' ')[0]),
-                      _tableRow(context, Icons.language, 'Version', student.version),
-                      _tableRow(context, Icons.menu_book, 'Subjects', student.subjects.join(', ')),
-                      _tableRow(context, Icons.attach_money, 'Fees', '₹${student.fees.toStringAsFixed(2)}'),
-                    ],
-                  ),
-                ),
-              ),
-              // Payment History Section
-              Card(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                elevation: 6,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.history, color: theme.colorScheme.primary),
-                          const SizedBox(width: 8),
-                          Text('Payment History', style: theme.textTheme.titleLarge),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      ..._buildPaymentHistory(context, student),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+                    )
+                  : _buildInitialAvatar(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _student.name,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${_student.studentClass} • ${_student.school}',
+            style: const TextStyle(
+              fontSize: 16,
+              color: AppTheme.textSecondary,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  TableRow _tableRow(BuildContext context, IconData icon, String label, String value) {
-    final theme = Theme.of(context);
-    final width = MediaQuery.of(context).size.width;
-    return TableRow(
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(vertical: width * 0.018),
-          child: Icon(icon, color: theme.colorScheme.primary, size: width * 0.07),
+  Widget _buildInitialAvatar() {
+    return Center(
+      child: Text(
+        _student.name.isNotEmpty ? _student.name[0].toUpperCase() : '?',
+        style: const TextStyle(
+          fontSize: 48,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.primaryColor,
         ),
-        Padding(
-          padding: EdgeInsets.symmetric(vertical: width * 0.018),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: width * 0.22, // Fixed width for label
-                child: Text(
-                  label,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                    fontSize: width * 0.045,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                ':',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.primary,
-                  fontSize: width * 0.045,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  value,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.normal,
-                    color: theme.colorScheme.onSurface,
-                    fontSize: width * 0.045,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> _buildPaymentHistory(BuildContext context, Student student) {
-    final List<Widget> rows = [];
-    final theme = Theme.of(context);
-    final history = <Map<String, dynamic>>[];
-    student.paidAmountByYearMonth.forEach((year, monthMap) {
-      monthMap.forEach((month, amount) {
-        final fee = student.customFeeByYearMonth[year]?[month] ?? student.fees;
-        history.add({
-          'year': year,
-          'month': month,
-          'amount': amount,
-          'fee': fee,
-          'status': amount >= fee ? 'Paid' : (amount > 0 ? 'Partial' : 'Unpaid'),
-          'date': DateTime(year, month, 1),
-        });
-      });
-    });
-    history.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
-    for (final entry in history) {
-      rows.add(
-        ListTile(
-          leading: Icon(
-            entry['status'] == 'Paid' ? Icons.check_circle : (entry['status'] == 'Partial' ? Icons.timelapse : Icons.warning_amber_rounded),
-            color: entry['status'] == 'Paid' ? Colors.green : (entry['status'] == 'Partial' ? Colors.purple : Colors.red),
-          ),
-          title: Text('${entry['month']}/${entry['year']} - ₹${entry['amount'].toStringAsFixed(2)} / ₹${entry['fee'].toStringAsFixed(2)}'),
-          subtitle: Text('Status: ${entry['status']}'),
-          trailing: ElevatedButton.icon(
-            icon: const Icon(Icons.receipt_long, size: 16),
-            label: const Text('Receipt'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.colorScheme.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-            ),
-            onPressed: () async {
-              await _generateAndShareReceipt(context, student, entry);
-            },
-          ),
-        ),
-      );
-    }
-    if (rows.isEmpty) {
-      rows.add(const Text('No payments yet.', style: TextStyle(color: Colors.grey)));
-    }
-    return rows;
-  }
-
-  Future<void> _generateAndShareReceipt(BuildContext context, Student student, Map<String, dynamic> entry) async {
-    final pdf = pw.Document();
-    final monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    pdf.addPage(
-      pw.Page(
-        build: (pw.Context context) {
-          return pw.Container(
-            padding: const pw.EdgeInsets.all(24),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('Payment Receipt', style: pw.TextStyle(fontSize: 28, fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 16),
-                pw.Text('Student Name: ${student.name}', style: pw.TextStyle(fontSize: 18)),
-                pw.Text('Class: ${student.className}', style: pw.TextStyle(fontSize: 16)),
-                pw.Text('School: ${student.school}', style: pw.TextStyle(fontSize: 16)),
-                pw.Text('Guardian Phone: ${student.guardianPhone}', style: pw.TextStyle(fontSize: 16)),
-                if (student.studentPhone != null && student.studentPhone!.isNotEmpty)
-                  pw.Text('Student Phone: ${student.studentPhone}', style: pw.TextStyle(fontSize: 16)),
-                pw.SizedBox(height: 12),
-                pw.Text('Receipt for: ${monthNames[(entry['month'] as int) - 1]} ${entry['year']}', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 8),
-                pw.Text('Amount Paid: ₹${(entry['amount'] as double).toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 16)),
-                pw.Text('Total Fee: ₹${(entry['fee'] as double).toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 16)),
-                pw.Text('Status: ${entry['status']}', style: pw.TextStyle(fontSize: 16)),
-                pw.SizedBox(height: 12),
-                pw.Text('Date: ${DateTime.now().toLocal().toString().split(' ')[0]}', style: pw.TextStyle(fontSize: 14)),
-                pw.Divider(),
-                pw.SizedBox(height: 12),
-                pw.Text('Thank you for your payment!', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-                pw.Spacer(),
-                pw.Align(
-                  alignment: pw.Alignment.centerRight,
-                  child: pw.Text('Arts Academy', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-                ),
-              ],
-            ),
-          );
-        },
       ),
     );
-    await Printing.sharePdf(bytes: await pdf.save(), filename: 'Receipt_${student.name}_${entry['month']}_${entry['year']}.pdf');
   }
-} 
+
+  Widget _buildInfoSection(String title, List<Widget> children) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+            const Divider(height: 24),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "exported_at": "2025-08-07T12:00:00Z",
+    "app_version": "1.0.0",
+    "schema": 1
+  },
+  "students": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "class": "Grade 10",
+      "school": "ABC High School",
+      "version": "2023-2024",
+      "guardian_name": "Jane Doe",
+      "guardian_phone": "+1234567890",
+      "student_phone": "+1234567891",
+      "subjects": "[\"Math\", \"Science\", \"English\"]",
+      "fees": 500.0,
+      "address": "123 Main Street, City, State",
+      "admission_date": "2023-09-01T00:00:00Z",
+      "dob": "2008-05-15T00:00:00Z",
+      "profile_pic": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+    }
+  ],
+  "fees": [
+    {
+      "fee_id": 1,
+      "student_id": 1,
+      "amount": 500.0,
+      "payment_date": "2023-09-01T00:00:00Z",
+      "payment_month": 9,
+      "payment_year": 2023,
+      "payment_status": "paid"
+    }
+  ]
+}

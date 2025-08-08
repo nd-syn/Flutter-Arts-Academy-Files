@@ -1,38 +1,50 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'models/student.dart';
-import 'theme/luxury_theme.dart';
-import 'screens/home_screen.dart';
-import 'screens/dashboard_screen.dart';
-
-final themeModeNotifier = ValueNotifier(ThemeMode.light);
+import 'package:flutter/services.dart';
+import 'package:arts_academy/screens/home_screen.dart';
+import 'package:arts_academy/utils/constants.dart';
+import 'package:arts_academy/utils/theme.dart';
+import 'package:arts_academy/services/database_helper.dart';
+import 'package:arts_academy/services/school_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter();
-  Hive.registerAdapter(StudentAdapter());
-  await Hive.openBox<Student>('students');
+  
+  // Initialize Hive database
+  await DatabaseHelper.instance.initDatabase();
+  
+  // Initialize School service
+  await SchoolService.instance.initSchoolService();
+  
+  // Set preferred orientations
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  
+  // Set system UI overlay style
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+  
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeModeNotifier,
-      builder: (context, mode, _) => MaterialApp(
-        title: 'ArtsAcademy',
-        theme: LuxuryTheme.theme,
-        darkTheme: LuxuryTheme.darkTheme,
-        themeMode: mode,
-        home: const HomeScreen(),
-        debugShowCheckedModeBanner: false,
-        routes: {
-          '/dashboard': (_) => const DashboardScreen(),
-        },
-      ),
+    return MaterialApp(
+      title: AppConstants.appName,
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.getTheme(),
+      home: const HomeScreen(),
     );
   }
 }
+

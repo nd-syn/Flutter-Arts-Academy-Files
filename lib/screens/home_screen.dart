@@ -1,221 +1,168 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import '../models/student.dart';
-import '../db/student_db.dart';
-import '../widgets/student_card.dart';
-import 'add_edit_student_screen.dart';
-import 'student_detail_screen.dart';
-import '../widgets/confirm_dialog.dart';
-import '../main.dart';
+import 'package:arts_academy/screens/student_list_screen.dart';
+import 'package:arts_academy/screens/fees_screen.dart';
+import 'package:arts_academy/screens/overview_screen.dart';
+import 'package:arts_academy/utils/theme.dart';
+import 'package:arts_academy/widgets/custom_bottom_nav.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  late Box<Student> studentBox;
-  String sortBy = 'name';
-  bool ascending = true;
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+  int _currentIndex = 0;
+  late final TabController _tabController;
+  final List<Widget> _screens = [
+    const StudentListScreen(),
+    const FeesScreen(),
+    const OverviewScreen(),
+  ];
 
   @override
   void initState() {
     super.initState();
-    studentBox = Hive.box<Student>('students');
+    _tabController = TabController(length: _screens.length, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          _currentIndex = _tabController.index;
+        });
+      }
+    });
   }
 
-  void _addOrEditStudent({Student? student, int? index}) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddEditStudentScreen(student: student, index: index),
-      ),
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    _tabController.animateTo(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOutCubic,
     );
-    setState(() {});
   }
 
-  void _viewStudent(Student student) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StudentDetailScreen(student: student),
+  Widget _buildAuthenticHeader() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-    );
-  }
-
-  void _deleteStudent(int index) async {
-    await StudentDB.deleteStudent(index);
-    setState(() {});
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: const [
-              Icon(Icons.delete, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Student deleted!'),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Academic Logo/Icon
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.school_rounded,
+                  size: 20,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Institution Name
+              Text(
+                'ARTS ACADEMY',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  letterSpacing: 1.0,
+                  fontFamily: 'Inter',
+                ),
+              ),
             ],
           ),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
-      );
-    }
-  }
-
-  List<Student> _getSortedStudents() {
-    List<Student> students = studentBox.values.toList();
-    students.sort((a, b) {
-      int cmp;
-      switch (sortBy) {
-        case 'date':
-          cmp = a.dob.compareTo(b.dob);
-          break;
-        case 'course':
-          cmp = a.className.compareTo(b.className);
-          break;
-        case 'name':
-        default:
-          cmp = a.name.compareTo(b.name);
-      }
-      return ascending ? cmp : -cmp;
-    });
-    return students;
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ArtsAcademy'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.dashboard),
-            tooltip: 'Dashboard',
-            onPressed: () => Navigator.pushNamed(context, '/dashboard'),
-          ),
-          Switch(
-            value: themeModeNotifier.value == ThemeMode.dark,
-            onChanged: (val) => themeModeNotifier.value = val ? ThemeMode.dark : ThemeMode.light,
-            activeColor: Theme.of(context).colorScheme.primary,
-            inactiveThumbColor: Colors.grey,
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'asc' || value == 'desc') {
-                setState(() => ascending = value == 'asc');
-              } else {
-                setState(() => sortBy = value);
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'name', child: Text('Sort by Name')),
-              const PopupMenuItem(value: 'course', child: Text('Sort by Course')),
-              const PopupMenuItem(value: 'date', child: Text('Sort by Date')),
-              const PopupMenuDivider(),
-              const PopupMenuItem(value: 'asc', child: Text('Ascending')),
-              const PopupMenuItem(value: 'desc', child: Text('Descending')),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            stops: const [0.0, 0.3, 0.6, 1.0],
+            colors: [
+              const Color.fromARGB(255, 165, 179, 245), // Academic blue
+              const Color.fromARGB(255, 165, 179, 245), // Deep purple
+              const Color.fromARGB(255, 165, 179, 245), // Soft pink
+              const Color(0xFFf5f7fa), // Light background
             ],
-            icon: const Icon(Icons.sort),
           ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.purple.shade50,
-                    Colors.blue.shade50,
-                    Colors.teal.shade50,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  stops: const [0.1, 0.5, 1.0],
+        ),
+        child: Column(
+          children: [
+            _buildAuthenticHeader(),
+            Expanded(
+              child: AnimationLimiter(
+                child: TabBarView(
+                  controller: _tabController,
+                  physics: const BouncingScrollPhysics(),
+                  children: _screens.asMap().entries.map((entry) {
+                    return AnimationConfiguration.staggeredList(
+                      position: entry.key,
+                      duration: AppTheme.slowAnimation,
+                      child: SlideAnimation(
+                        curve: AppTheme.slideCurve,
+                        verticalOffset: 50,
+                        child: FadeInAnimation(
+                          curve: AppTheme.standardCurve,
+                          child: entry.value,
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
             ),
-          ),
-          ValueListenableBuilder(
-            valueListenable: studentBox.listenable(),
-            builder: (context, Box<Student> box, _) {
-              final students = _getSortedStudents();
-              if (students.isEmpty) {
-                return Center(
-                  child: Text(
-                    'No students yet. Tap + to add.',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                );
-              }
-              return ListView.builder(
-                itemCount: students.length,
-                itemBuilder: (context, index) {
-                  final student = students[index];
-                  return Dismissible(
-                    key: Key(student.key.toString()),
-                    background: Container(
-                      color: Colors.redAccent,
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: const Icon(Icons.delete, color: Colors.white),
-                    ),
-                    direction: DismissDirection.endToStart,
-                    confirmDismiss: (_) async {
-                      final confirmed = await showConfirmDialog(
-                        context: context,
-                        title: 'Delete Student',
-                        message: 'Are you sure you want to delete this student? This action cannot be undone.',
-                        icon: Icons.delete_forever,
-                        confirmText: 'Delete',
-                        confirmColor: Colors.redAccent,
-                      );
-                      if (confirmed == true) {
-                        _deleteStudent(index);
-                        return true;
-                      }
-                      return false;
-                    },
-                    child: RepaintBoundary(
-                      child: StudentCard(
-                        name: student.name,
-                        className: student.className,
-                        photoPath: student.photoPath,
-                        onTap: () => _viewStudent(student),
-                        onEdit: () => _addOrEditStudent(student: student, index: index),
-                        version: student.version,
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ],
+          ],
+        ),
       ),
-      floatingActionButton: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 1.0, end: 1.08),
-        duration: const Duration(seconds: 2),
-        curve: Curves.easeInOut,
-        builder: (context, scale, child) => Transform.scale(
-          scale: scale,
-          child: child,
-        ),
-        onEnd: () {
-          // Loop the animation
-          setState(() {});
-        },
-        child: FloatingActionButton(
-          onPressed: () => _addOrEditStudent(),
-          child: const Icon(Icons.add),
-        ),
+      extendBody: true,
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: _currentIndex,
+        onTap: _onTabChanged,
       ),
     );
   }
-} 
+}
